@@ -1,0 +1,17 @@
+# Scraped podcast transcripts — not mine to republish, and 107MB besides.
+# Anyone cloning this runs scrape_transcripts.py to fetch their own copy.
+transcripts/
+chunks.json
+chunks_part1.json
+chunks_part2.json
+episodes_index.json
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Secrets — never commit these
+.env
+*.save
