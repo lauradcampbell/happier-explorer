@@ -77,5 +77,4 @@ running step 1 fetches your own copy. Be nice to Podscripts.co and leave the del
 
 ## Built with
 
-Python, [Claude](https://www.anthropic.com/claude), BeautifulSoup, and a stubborn refusal to accept
-that podcast search is that bad.
+Python, [Claude](https://www.anthropic.com/claude), BeautifulSoup, and the need to find that one really specific episode from 3 years ago. You know, with the guy, who worked in the place, and talked about meditation?
