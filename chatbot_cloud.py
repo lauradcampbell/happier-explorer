@@ -38,7 +38,7 @@ import anthropic
 PORT = int(os.environ.get("PORT", 8000))
 CHUNKS_FILE = "chunks.json"
 TOP_K = 8
-MODEL = "claude-sonnet-4-20250514"
+MODEL = "claude-sonnet-5"
 PASSWORD = os.environ.get("CHATBOT_PASSWORD", "")
 DAILY_LIMIT = int(os.environ.get("DAILY_LIMIT", 50))
 
@@ -744,13 +744,21 @@ CHAT_TEMPLATE = """<!DOCTYPE html>
                     const botMsg = document.createElement('div');
                     botMsg.className = 'message bot';
 
+                    const inline = t => t
+                        .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
+                        .replace(/\\*(.+?)\\*/g, '<em>$1</em>');
                     let html = data.answer
                         .split('\\n\\n')
                         .filter(p => p.trim())
-                        .map(p => '<p>' + p
-                            .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
-                            .replace(/\\*(.+?)\\*/g, '<em>$1</em>')
-                            + '</p>')
+                        .map(p => {
+                            const t = p.trim();
+                            const h = /^(#{1,4})\\s+/.exec(t);
+                            if (h) {
+                                const lvl = Math.min(h[1].length + 1, 5);
+                                return '<h' + lvl + '>' + inline(t.slice(h[0].length)) + '</h' + lvl + '>';
+                            }
+                            return '<p>' + inline(t) + '</p>';
+                        })
                         .join('');
 
                     if (data.sources && data.sources.length > 0) {

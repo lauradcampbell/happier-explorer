@@ -16,6 +16,9 @@ part is locked inside the audio.
 
 So I built the search that should already exist.
 
+The index currently covers **475 episodes** of the roughly 1,100 that have been scraped —
+rebuilding `chunks.json` from the full `transcripts/` directory extends it to all of them.
+
 ## How it works
 
 ```mermaid

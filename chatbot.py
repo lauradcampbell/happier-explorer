@@ -30,7 +30,7 @@ import anthropic
 PORT = 8000
 CHUNKS_FILE = "chunks.json"
 TOP_K = 8  # number of chunks to retrieve per query
-MODEL = "claude-sonnet-4-20250514"
+MODEL = "claude-sonnet-5"
 
 
 # --- TF-IDF Search Engine ---
@@ -543,13 +543,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     botMsg.className = 'message bot';
 
                     // Format answer paragraphs
+                    const inline = t => t
+                        .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
+                        .replace(/\\*(.+?)\\*/g, '<em>$1</em>');
                     let html = data.answer
                         .split('\\n\\n')
                         .filter(p => p.trim())
-                        .map(p => '<p>' + p
-                            .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
-                            .replace(/\\*(.+?)\\*/g, '<em>$1</em>')
-                            + '</p>')
+                        .map(p => {
+                            const t = p.trim();
+                            const h = /^(#{1,4})\\s+/.exec(t);
+                            if (h) {
+                                const lvl = Math.min(h[1].length + 1, 5);
+                                return '<h' + lvl + '>' + inline(t.slice(h[0].length)) + '</h' + lvl + '>';
+                            }
+                            return '<p>' + inline(t) + '</p>';
+                        })
                         .join('');
 
                     // Add source cards with links
