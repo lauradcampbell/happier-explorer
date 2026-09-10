@@ -1,0 +1,20 @@
+.git
+.gitignore
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.save
+.env
+
+# 100MB+ of raw transcripts — chunks*.json is the only data the app reads.
+transcripts/
+episodes_index.json
+
+# Local/CLI-only tooling and docs
+chatbot.py
+scrape_transcripts.py
+chunk_transcripts.py
+README.md
+DEPLOY.md
+Procfile

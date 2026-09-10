@@ -1,86 +1,99 @@
-# Deploying 10% Happier Explorer to Railway
+# Deploying 10% Happier Explorer to Northflank
 
-## What you need
-- A GitHub account (free)
-- A Railway account (free tier: 500 hours/month)
+This replaces the old Railway setup. Railway used the `Procfile`; Northflank
+builds the `Dockerfile` in this repo instead.
 
-## Step-by-step
+## How the two repos fit together
 
-### 1. Create a GitHub repository
+| Repo | What's in it | Role |
+|---|---|---|
+| `lauradcampbell/happier-explorer` (public) | code only — transcripts and `chunks*.json` are gitignored | source of truth |
+| `lauradcampbell/happier-chatbot` (private) | `chatbot_cloud.py`, `requirements.txt`, `Dockerfile`, `chunks_part1.json`, `chunks_part2.json` | what the host builds |
 
-Go to https://github.com/new and create a new repository. Call it something
-like `happier-chatbot`. Keep it **Private**. Don't add a README.
+The transcript data isn't ours to republish, so it lives only in the private
+repo. **Northflank deploys from the private `happier-chatbot` repo.**
 
-### 2. Push your files to GitHub
+Because the code exists in both places it can drift — that's how the deployed
+copy ended up running a retired model id. After changing `chatbot_cloud.py`,
+push it to both.
 
-In Terminal, navigate to your project folder and run:
+## One-time setup
+
+### 1. Sync the private deploy repo
+
+From the public repo checkout:
 
 ```bash
-cd ~/happier-chatbot
-
-# Initialize git
-git init
-git branch -M main
-
-# Create a .gitignore so we don't upload unnecessary files
-echo "transcripts/" > .gitignore
-echo "episodes_index.json" >> .gitignore
-echo "scrape_transcripts.py" >> .gitignore
-echo "chunk_transcripts.py" >> .gitignore
-echo "__pycache__/" >> .gitignore
-
-# Add the files we need for deployment
-git add chatbot_cloud.py chunks.json requirements.txt Procfile .gitignore
-git commit -m "Initial deploy"
-
-# Connect to your GitHub repo (replace YOUR_USERNAME with your GitHub username)
-git remote add origin https://github.com/YOUR_USERNAME/happier-chatbot.git
-git push -u origin main
+git clone https://github.com/lauradcampbell/happier-chatbot.git /tmp/deploy
+cp chatbot_cloud.py requirements.txt Dockerfile /tmp/deploy/
+cd /tmp/deploy && git add -A && git commit -m "Move to Northflank" && git push
 ```
 
-Note: chunks.json is about 20MB. GitHub allows files up to 100MB so this is fine.
+### 2. Create the Northflank service
 
-### 3. Deploy on Railway
+1. Sign up at https://northflank.com and connect your GitHub account,
+   granting access to the private `happier-chatbot` repo.
+2. **Create new → Service → Combined service** (combined = build + deploy from
+   one branch, with CI/CD on by default).
+3. Repository: `happier-chatbot`, branch `main`.
+4. Build type: **Dockerfile**, path `/Dockerfile`, context `/`.
+5. Resources: **at least 512 MB memory**. The app loads ~28 MB of JSON and
+   builds a TF-IDF index over 10,384 chunks in memory — measured peak is about
+   250 MB, so 256 MB will be OOM-killed. 1 GB is comfortable.
+6. Instances: **1**. Logins and the daily rate limit are held in memory, so a
+   second instance would give inconsistent limits and random logouts.
 
-1. Go to https://railway.app/ and sign up with your GitHub account
-2. Click "New Project" → "Deploy from GitHub Repo"
-3. Select your `happier-chatbot` repository
-4. Railway will detect the Procfile and start building
+### 3. Environment variables
 
-### 4. Set environment variables
+Under the service's **Environment** (runtime variables), add:
 
-In your Railway project dashboard:
-1. Click on your service
-2. Go to the "Variables" tab
-3. Add these three variables:
-   - `ANTHROPIC_API_KEY` = your API key (sk-ant-...)
-   - `CHATBOT_PASSWORD` = choose a password you'll remember
-   - `DAILY_LIMIT` = 50 (or whatever you want)
+| Variable | Value |
+|---|---|
+| `ANTHROPIC_API_KEY` | your key (`sk-ant-...`) |
+| `CHATBOT_PASSWORD` | the password you'll type to get in |
+| `DAILY_LIMIT` | `50` (or whatever cap you want) |
 
-### 5. Generate a public URL
+Don't set `PORT` — the Dockerfile sets it to 8080.
 
-1. In Railway, go to your service's "Settings" tab
-2. Under "Networking", click "Generate Domain"
-3. Railway will give you a URL like `happier-chatbot-production-xxxx.up.railway.app`
+### 4. Ports and public URL
 
-### 6. Open it!
+Northflank picks up `EXPOSE 8080` from the Dockerfile. On the service's
+**Ports & DNS** page, make sure port `8080` is set to **public** with HTTP
+protocol. Northflank issues the TLS certificate and gives you a
+`*.code.run` URL.
 
-Visit that URL on your phone or any browser. Enter your password and start asking questions.
+### 5. Health check (optional but recommended)
+
+Add an HTTP health check on path `/`, port 8080. Give it a **startup grace
+period of at least 60 seconds** — the search index takes a while to build
+before the server starts answering.
+
+### 6. Verify, then retire Railway
+
+Open the Northflank URL, log in, ask a question, confirm you get an answer
+with episode citations. Leave the Railway deployment running until that works,
+then delete the Railway project so it stops consuming hours.
 
 ## Updating later
 
-If you scrape more episodes and rebuild chunks.json, just push the update:
+Code change: edit `chatbot_cloud.py` here, commit, then copy it into the
+private repo and push there too. Northflank rebuilds automatically.
 
-```bash
-cd ~/happier-chatbot
-git add chunks.json
-git commit -m "Updated transcripts"
-git push
-```
+New transcripts: rerun `scrape_transcripts.py` and `chunk_transcripts.py`,
+then push the regenerated `chunks_part1.json` / `chunks_part2.json` to the
+private repo.
 
-Railway will automatically redeploy.
+Restarting the service logs everyone out (sessions are in memory) and resets
+the daily counter. That's expected.
 
 ## Cost
 
-- Railway free tier: $0 (500 hours/month is plenty)
-- Anthropic API: ~$0.01-0.02 per question
+- Northflank: consumption-based. The free Sandbox tier covers 2 services;
+  beyond that, roughly $0.017/vCPU-hour plus $0.008/GB-hour for what you
+  allocate.
+- Anthropic API: ~$0.01–0.02 per question.
+
+## Leftover from Railway
+
+`Procfile` is unused now — Northflank builds the `Dockerfile`. It's kept only
+in case you ever want to redeploy on a Procfile-based host.

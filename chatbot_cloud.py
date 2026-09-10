@@ -31,12 +31,14 @@ import hashlib
 import secrets
 import time
 from collections import Counter
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 import anthropic
 
 # --- Configuration ---
 PORT = int(os.environ.get("PORT", 8000))
 CHUNKS_FILE = "chunks.json"
+CHUNKS_PART1 = "chunks_part1.json"
+CHUNKS_PART2 = "chunks_part2.json"
 TOP_K = 8
 MODEL = "claude-sonnet-5"
 PASSWORD = os.environ.get("CHATBOT_PASSWORD", "")
@@ -939,14 +941,21 @@ def main():
         print("WARNING: No CHATBOT_PASSWORD set. Running without password protection.")
         print("  Set CHATBOT_PASSWORD env var to enable it.\n")
 
-    # Load chunks
-    if not os.path.exists(CHUNKS_FILE):
-        print(f"ERROR: {CHUNKS_FILE} not found.")
-        return
-
+    # Load chunks. chunks.json is split into chunks_part1/2.json for deployment,
+    # so accept either layout.
     print("Loading transcripts...")
-    with open(CHUNKS_FILE, "r", encoding="utf-8") as f:
-        chunks = json.load(f)
+    if os.path.exists(CHUNKS_FILE):
+        with open(CHUNKS_FILE, "r", encoding="utf-8") as f:
+            chunks = json.load(f)
+    elif os.path.exists(CHUNKS_PART1) and os.path.exists(CHUNKS_PART2):
+        chunks = []
+        for part in (CHUNKS_PART1, CHUNKS_PART2):
+            with open(part, "r", encoding="utf-8") as f:
+                chunks.extend(json.load(f))
+    else:
+        print(f"ERROR: no transcript data found ({CHUNKS_FILE}, or "
+              f"{CHUNKS_PART1} + {CHUNKS_PART2}).")
+        return
     print(f"  Loaded {len(chunks)} chunks")
 
     # Build search engine
@@ -963,7 +972,7 @@ def main():
     ChatHandler.sessions = sessions
     ChatHandler.rate_limiter = rate_limiter
 
-    server = HTTPServer(("0.0.0.0", PORT), ChatHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), ChatHandler)
     print(f"\n{'='*50}")
     print(f"  10% Happier Explorer is running!")
     print(f"  Open http://localhost:{PORT} in your browser")

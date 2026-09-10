@@ -70,8 +70,9 @@ Roughly $0.01–0.02 per question.
 
 ## Deploying it so you can use it on your phone
 
-`chatbot_cloud.py` is a password-protected web version with a daily question cap, built to run on
-[Railway](https://railway.app/)'s free tier. Full walkthrough in [DEPLOY.md](DEPLOY.md).
+`chatbot_cloud.py` is a password-protected web version with a daily question cap. It ships with a
+`Dockerfile` and runs on [Northflank](https://northflank.com/). Full walkthrough in
+[DEPLOY.md](DEPLOY.md).
 
 ## A note on the transcripts
 
